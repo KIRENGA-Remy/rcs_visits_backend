@@ -3,8 +3,10 @@ package gitoli.java.projects.com.rcs_visits_backend.security;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
@@ -13,10 +15,13 @@ import java.util.Date;
 @Component
 public class JwtTokenProvider {
 
-    @Value("${app.jwt-secret}")
+    @Autowired
+    private UserDetailsService userDetailsService;
+
+    @Value("${jwt.secret}")
     private String jwtSecret;
 
-    @Value("${app-jwt-expiration-milliseconds}")
+    @Value("${jwt.expiration}")
     private long jwtExpirationDate;
 
     public String generateToken(Authentication authentication) {

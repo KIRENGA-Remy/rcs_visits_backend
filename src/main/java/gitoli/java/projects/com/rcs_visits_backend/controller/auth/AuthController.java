@@ -20,9 +20,16 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
 @RequestMapping("/auth")
+@Tag(name = "Authentication", description = "Authentication API endpoints")
 public class AuthController {
     @Autowired
     private AuthenticationManager authenticationManager;
@@ -39,6 +46,15 @@ public class AuthController {
     @Autowired
     private RateLimitingService rateLimitingService;
 
+    @Operation(summary = "Register a new user")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "User registered successfully",
+                    content = @Content(schema = @Schema(implementation = String.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid password format",
+                    content = @Content),
+            @ApiResponse(responseCode = "500", description = "Internal server error",
+                    content = @Content)
+    })
     @PostMapping("/register")
     public ResponseEntity<String> register(@RequestBody AuthRequest authRequest) {
         if (!isPasswordValid(authRequest.getPassword())) {
@@ -69,6 +85,17 @@ public class AuthController {
 //    }
 
 
+    @Operation(summary = "Login with email and password")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Login successful",
+                    content = @Content(schema = @Schema(implementation = AuthResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - invalid credentials",
+                    content = @Content),
+            @ApiResponse(responseCode = "429", description = "Too many login attempts",
+                    content = @Content),
+            @ApiResponse(responseCode = "500", description = "Internal server error",
+                    content = @Content)
+    })
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody AuthRequest authRequest, HttpServletResponse response, HttpServletRequest request) {
         String ip = request.getRemoteAddr();
@@ -91,11 +118,21 @@ public class AuthController {
         cookie.setPath("/");
         cookie.setMaxAge(7 * 24 * 60 * 60); //7 days expiry
         response.addCookie(cookie);
-        return ResponseEntity.ok(new AuthResponse(user.getRole().name(), token));
+
+        AuthResponse authResponse = new AuthResponse(
+                token,
+                user.getFirstName(),
+                user.getLastName(),
+                user.getEmail(),
+                user.getRole().name()
+        );
+        return ResponseEntity.ok(authResponse);
     }
 
     private boolean isPasswordValid(String password) {
         String pattern = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!])(?=\\S+$).{8,}$";
         return password.matches(pattern);
     }
+
+
 }
