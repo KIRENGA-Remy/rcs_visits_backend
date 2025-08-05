@@ -1,6 +1,7 @@
 package gitoli.java.projects.com.rcs_visits_backend.controller.auth;
 
 import gitoli.java.projects.com.rcs_visits_backend.dto.request.AuthRequest;
+import gitoli.java.projects.com.rcs_visits_backend.dto.request.RegisterRequest;
 import gitoli.java.projects.com.rcs_visits_backend.dto.response.AuthResponse;
 import gitoli.java.projects.com.rcs_visits_backend.model.User;
 import gitoli.java.projects.com.rcs_visits_backend.repository.UserRepository;
@@ -10,6 +11,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -49,24 +51,49 @@ public class AuthController {
     @Operation(summary = "Register a new user")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "User registered successfully",
-                    content = @Content(schema = @Schema(implementation = String.class))),
-            @ApiResponse(responseCode = "400", description = "Invalid password format",
+                    content = @Content(schema = @Schema(implementation = AuthResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid input",
                     content = @Content),
-            @ApiResponse(responseCode = "500", description = "Internal server error",
+            @ApiResponse(responseCode = "409", description = "Email already exists",
                     content = @Content)
     })
     @PostMapping("/register")
-    public ResponseEntity<String> register(@RequestBody AuthRequest authRequest) {
-        if (!isPasswordValid(authRequest.getPassword())) {
+    public ResponseEntity<?> register(@RequestBody RegisterRequest registerRequest) {
+        // Validate password
+        if (!isPasswordValid(registerRequest.getPassword())) {
             return ResponseEntity.badRequest().body(
                     "Password must be 8+ chars with uppercase, lowercase, number, and special char"
             );
         }
+
+        // Check if email exists
+        if (userRepository.existsByEmail(registerRequest.getEmail())) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Email already registered");
+        }
+
+        // Create new user
         User user = new User();
-        user.setEmail(authRequest.getEmail());
-        user.setPassword(passwordEncoder.encode(authRequest.getPassword()));
-        userRepository.save(user);
-        return ResponseEntity.ok("User registered successfully");
+        user.setEmail(registerRequest.getEmail());
+        user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
+        user.setFirstName(registerRequest.getFirstName());
+        user.setLastName(registerRequest.getLastName());
+        user.setRole(User.Role.valueOf(registerRequest.getRole().toUpperCase()));
+
+        User savedUser = userRepository.save(user);
+
+        // Generate token
+        String token = jwtUtil.generateToken(user.getEmail());
+
+        // Return auth response
+        AuthResponse response = new AuthResponse(
+                token,
+                savedUser.getFirstName(),
+                savedUser.getLastName(),
+                savedUser.getEmail(),
+                savedUser.getRole().name()
+        );
+
+        return ResponseEntity.ok(response);
     }
 
 //    @PostMapping("/login")
