@@ -55,6 +55,7 @@ public class AuthController {
                     content = @Content)
     })
     @PostMapping("/register")
+    @ResponseBody
     public ResponseEntity<?> register(@RequestBody RegisterRequest registerRequest) {
         // Validate password
         if (!isPasswordValid(registerRequest.getPassword())) {
@@ -62,7 +63,6 @@ public class AuthController {
                     "Password must be 8+ chars with uppercase, lowercase, number, and special char"
             );
         }
-
         // Check if email exists
         if (userRepository.existsByEmail(registerRequest.getEmail())) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Email already registered");
@@ -89,7 +89,6 @@ public class AuthController {
                 savedUser.getEmail(),
                 savedUser.getRole().name()
         );
-
         return ResponseEntity.ok(response);
     }
 
@@ -121,13 +120,14 @@ public class AuthController {
                     content = @Content)
     })
     @PostMapping("/login")
+    @ResponseBody
     public ResponseEntity<?> login(@RequestBody AuthRequest authRequest, HttpServletResponse response, HttpServletRequest request) {
         String ip = request.getRemoteAddr();
         String key = "login_attempts" + ip;
 
-        if(!rateLimitingService.isAllowed(key, 5, 15)) { // 5 attempts per 15 mins
-            return ResponseEntity.status(429).body("Too many login attempts");
-        }
+//        if(!rateLimitingService.isAllowed(key, 5, 15)) { // 5 attempts per 15 mins
+//            return ResponseEntity.status(429).body("Too many login attempts");
+//        }
 
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(authRequest.getEmail(), authRequest.getPassword())
@@ -165,7 +165,6 @@ public class AuthController {
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-
         return ResponseEntity.ok(user);
     }
 
